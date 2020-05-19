@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask
+from flask import Flask, send_file
 from flask_restful import reqparse, abort, Api, Resource
 
 from gpapi.googleplay import (
@@ -9,7 +9,7 @@ from gpapi.googleplay import (
 
 from dotenv import load_dotenv
 
-from .device_map import device_conf
+from device_map import device_conf
 
 
 app = Flask(__name__)
@@ -17,6 +17,9 @@ api = Api(app)
 
 parser = reqparse.RequestParser()
 parser.add_argument('package_name', type=str, help='Bundle id of the apk')
+parser.add_argument('timezone', type=str, help='Timezone')
+parser.add_argument('platform', type=str, help='Platform')
+
 
 load_dotenv()
 GSFID = os.getenv('GSFID')
@@ -41,7 +44,7 @@ def get_device_codename(platform, timezone):
         platforms = conf.get('platforms')
         ctimezone = conf.get('timezone')
         if platform in platforms and timezone == ctimezone:
-            return conf.get('device')
+            return conf.get('device_codename')
     return 'bacon'
 
 
@@ -53,8 +56,14 @@ class Download(Resource):
             abort(404, message="package_name is required")
         timezone = args.get('timezone')
         platform = args.get('platform')
+        print(timezone, platform)
         device_codename = get_device_codename(platform, timezone)
-        gplayapi = get_api_client(GSFID, TOKEN, timezone, device_codename)
+        print(device_codename)
+        try:
+            print(GSFID, TOKEN)
+            gplayapi = get_api_client(GSFID, TOKEN, timezone, device_codename)
+        except Exception as exc:
+            abort(404, message=exc.value)
         try:
             detail = gplayapi.details(package_name)
         except RequestError as exc:
@@ -64,7 +73,7 @@ class Download(Resource):
                 method = gplayapi.delivery
             else:
                 method = gplayapi.download
-            data_iter = method('nic.goi.aarogyasetu')
+            data_iter = method(package_name)
             with open('a.apk', 'w+') as temp:
                 for index, chunk in enumerate(data_iter['file']['data']):
                     temp.write(chunk)
@@ -72,7 +81,7 @@ class Download(Resource):
             msg = "Package does not exist {}".format('bundle_id')
             abort(404, message=msg)
         except Exception as exc:
-            msg = "Error while downloading {} : {}".format('bundle_id', exc)
+            msg = "Error while downloading {} : {}".format(package_name, exc)
             abort(404, message=msg)
 
 
