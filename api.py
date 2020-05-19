@@ -9,6 +9,9 @@ from gpapi.googleplay import (
 
 from dotenv import load_dotenv
 
+from .device_map import device_conf
+
+
 app = Flask(__name__)
 api = Api(app)
 
@@ -22,13 +25,24 @@ LOCALE = os.getenv('LOCALE')
 TIMEZONE = os.getenv('TIMEZONE')
 DEVICE_CODENAME = os.getenv('DEVICE_CODENAME')
 
-gplayapi = GooglePlayAPI(
-    locale=LOCALE,
-    timezone=TIMEZONE,
-    device_codename=DEVICE_CODENAME
-)
 
-gplayapi.login(gsfId=int(GSFID), authSubToken=TOKEN)
+def get_api_client(gsfId, token, timezone, device_codename):
+    gplayapi = GooglePlayAPI(
+        locale=LOCALE,
+        timezone=timezone,
+        device_codename=device_codename
+    )
+    gplayapi.login(gsfId=int(gsfId), authSubToken=token)
+    return gplayapi
+
+
+def get_device_codename(platform, timezone):
+    for conf in device_conf:
+        platforms = conf.get('platforms')
+        ctimezone = conf.get('timezone')
+        if platform in platforms and timezone == ctimezone:
+            return conf.get('device')
+    return 'bacon'
 
 
 class Download(Resource):
@@ -37,6 +51,10 @@ class Download(Resource):
         package_name = args.get('package_name')
         if package_name is None:
             abort(404, message="package_name is required")
+        timezone = args.get('timezone')
+        platform = args.get('platform')
+        device_codename = get_device_codename(platform, timezone)
+        gplayapi = get_api_client(GSFID, TOKEN, timezone, device_codename)
         try:
             detail = gplayapi.details(package_name)
         except RequestError as exc:
