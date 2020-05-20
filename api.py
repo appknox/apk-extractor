@@ -4,7 +4,7 @@ from flask import Flask, send_file
 from flask_restful import reqparse, abort, Api, Resource
 
 from gpapi.googleplay import (
-    GooglePlayAPI, LoginError, RequestError, SecurityCheckError
+    GooglePlayAPI, RequestError
 )
 
 from dotenv import load_dotenv
@@ -25,8 +25,6 @@ load_dotenv()
 GSFID = os.getenv('GSFID')
 TOKEN = os.getenv('AUTH_SUB_TOKEN')
 LOCALE = os.getenv('LOCALE')
-TIMEZONE = os.getenv('TIMEZONE')
-DEVICE_CODENAME = os.getenv('DEVICE_CODENAME')
 
 
 def get_api_client(gsfId, token, timezone, device_codename):
@@ -56,11 +54,8 @@ class Download(Resource):
             abort(404, message="package_name is required")
         timezone = args.get('timezone')
         platform = args.get('platform')
-        print(timezone, platform)
         device_codename = get_device_codename(platform, timezone)
-        print(device_codename)
         try:
-            print(GSFID, TOKEN)
             gplayapi = get_api_client(GSFID, TOKEN, timezone, device_codename)
         except Exception as exc:
             abort(404, message=exc.value)
@@ -74,9 +69,11 @@ class Download(Resource):
             else:
                 method = gplayapi.download
             data_iter = method(package_name)
-            with open('a.apk', 'w+') as temp:
+            filename = package_name + '.apk'
+            with open(filename, 'wb') as temp:
                 for index, chunk in enumerate(data_iter['file']['data']):
                     temp.write(chunk)
+            return send_file(filename, as_attachment=True)
         except IndexError:
             msg = "Package does not exist {}".format('bundle_id')
             abort(404, message=msg)

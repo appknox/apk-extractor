@@ -37,7 +37,7 @@ device_conf = [
     },
     {
         'device_codename': 'bravo',
-        'platforms': ['armeabi-v7a,armeabi'],
+        'platforms': ['armeabi-v7a', 'armeabi'],
         'timezone':  'EEST',
         'country': 'Europe/Kaliningrad'
     },
